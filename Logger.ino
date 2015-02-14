@@ -67,7 +67,7 @@ void print2digits(int number) {
 void screenSaver() {
   display.clearDisplay();   // clears the screen and buffer
   display.setCursor(15,0);
-  print2digits(tmYearToCalendar(tm.Year));
+  print2digits(tmYearToCalendar(tm.Year)); // don't know why just 'tm.Year' doesn't work
   display.print("-");
   print2digits(tm.Month);
   display.print("-");
