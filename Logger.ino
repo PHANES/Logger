@@ -18,14 +18,18 @@ Adafruit_PCD8544 display = Adafruit_PCD8544(7, 6, 5, 4, 3);
 #include <Time.h>
 #include <DS1307RTC.h>
 
-char appName[] = "Logger";
-char appVersion[] = "0.1";
-char versionDate[] = "2015-02-11";
+const char appName[] = "Logger";
+const char appVersion[] = "0.1";
+const char versionDate[] = "2015-02-11";
 
 tmElements_t tm;
 
+const byte displayLight = 8;
+
 void setup() {
   Serial.begin(9600);
+  
+  pinMode(displayLight, OUTPUT);
 
   display.begin();
   // init done
