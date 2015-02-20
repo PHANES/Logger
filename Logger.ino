@@ -38,8 +38,8 @@ DS3231  rtc(SDA, SCL);
 
 /*######################################## Sketch Version ########################################*/
 const char appName[] = "Logger";
-const char appVersion[] = "0.2";
-const char versionDate[] = "17.Feb\'15";
+const char appVersion[] = "0.3";
+const char versionDate[] = "20.Feb\'15";
 
 /*######################################## Global Variables ########################################*/
 byte selector = 1;
@@ -85,6 +85,7 @@ void splashScreen() {
   display.print("Date:", LEFT, 32);
   display.print(versionDate, RIGHT, 32);
   digitalWrite(displayLight, HIGH);
+  delay(4000);
 }
 
 void readEncoder() {
@@ -110,7 +111,6 @@ void confirm(int conf, int from) {
   display.printNumI(conf, CENTER, 0, 2, '0');
   display.print(" Saved!", CENTER, 8);
   delay(2000);
-//  selector = 3;
   menu(from);
 }
 
