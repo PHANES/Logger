@@ -84,8 +84,8 @@ void splashScreen() {
   display.print(appVersion, RIGHT, 16);
   display.print("Date:", LEFT, 32);
   display.print(versionDate, RIGHT, 32);
-  digitalWrite(displayLight, HIGH);
   delay(4000);
+  digitalWrite(displayLight, HIGH);
 }
 
 void readEncoder() {
