@@ -178,10 +178,12 @@ void setValue(int menuSelector) {
         display.printNumI(itemValue, CENTER, 24, 2, '0');
         display.setFont(SmallFont);
         if (b == ClickEncoder::DoubleClicked) {
+          lastInput = millis();
           menu(menuSelector);
           break;
         }
         if (b == ClickEncoder::Held) {
+          lastInput = millis();
           EEPROM.write(menuSelector, itemValue);
           confirm(itemValue, menuSelector);
           break;
