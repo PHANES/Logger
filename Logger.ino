@@ -1,15 +1,26 @@
+/*######################################## Sketch Version ########################################*/
+const char appName[] = "Logger";
+const char appVersion[] = "0.4";
+const char versionDate[] = "23.Feb\'15";
+const byte showSplashFor = 30;
+
+/*######################################## Global Variables ########################################*/
+String menuItem[] = {"Light", "Temperature", "Humidity", "Water"};
+const byte items = sizeof(menuItem)/sizeof(menuItem[0]);
+int selector = items;
+int itemValue = 0;
+long check = 0;
+long lastInput = 0;
+unsigned int displayTimeout = 15000;
+
 /*######################################## EEPROM ########################################*/
 #include <EEPROM.h>
-// start reading from the first byte (address 0) of the EEPROM
-int lightAddress = 0;
-int tempAddress = 1;
 
 /*######################################## Rotary Encoder ########################################*/
 #include <ClickEncoder.h>
 #include <TimerOne.h>
 ClickEncoder *encoder;
 int last = 1;
-int value = 1;
 void timerIsr() {
   encoder->service();
 }
@@ -27,8 +38,9 @@ void timerIsr() {
 #include <LCD5110_Basic.h>
 LCD5110 display(7,6,5,3,4);
 extern uint8_t SmallFont[];
-extern uint8_t MediumNumbers[];
+extern uint8_t BigNumbers[];
 const byte displayLight = 8;
+bool displayLEDisOn = true;
 
 /*######################################## DS3231 RTC ########################################*/
 #include <DS3231.h>
@@ -36,19 +48,8 @@ const byte displayLight = 8;
 // Init the DS3231 using the hardware interface
 DS3231  rtc(SDA, SCL);
 
-/*######################################## Sketch Version ########################################*/
-const char appName[] = "Logger";
-const char appVersion[] = "0.3";
-const char versionDate[] = "20.Feb\'15";
-
-/*######################################## Global Variables ########################################*/
-byte selector = 1;
-bool lightOn = false;
-byte temp, light;
-
 /*######################################## Setup ########################################*/
 void setup() {
-  Serial.begin(9600);
   // Initialize the rtc object
   rtc.begin();
   
@@ -57,13 +58,10 @@ void setup() {
   encoder = new ClickEncoder(A1, A0, A2, 4, LOW); //Rotary PIN-A, PIN-B, PIN-3, Anzahl der Steps, Knopf an 5V oder Ground
   Timer1.initialize(1000);
   Timer1.attachInterrupt(timerIsr);
-  last = -1;
+  last = items-1;
   encoder->setAccelerationEnabled(true);
 
   display.InitLCD();
-  
-  light = EEPROM.read(lightAddress);
-  temp = EEPROM.read(tempAddress);
   
   splashScreen();
 }
@@ -84,122 +82,108 @@ void splashScreen() {
   display.print(appVersion, RIGHT, 16);
   display.print("Date:", LEFT, 32);
   display.print(versionDate, RIGHT, 32);
-  delay(4000);
-  digitalWrite(displayLight, HIGH);
+  delay(showSplashFor*100);
 }
 
 void readEncoder() {
-  value += encoder->getValue();
-  
-  if (value != last) {
-    if (value > 4 || value < 1) {
-      if (value < 1) {
-        value = 4;
+  selector += encoder->getValue();
+  if (selector != last) {
+    displayLEDisOn = true;
+    lastInput = millis();
+    if (selector > items+1 || selector < 0) {
+      if (selector < 0) {
+        selector = items+1;
       }
       else {
-        value = 1;
+        selector = 0;
       }
     }
-    last = value;
-    selector = value;
-  } 
+    last = selector;
+  }
 }
 
 void confirm(int conf, int from) {
   display.clrScr();
   digitalWrite(displayLight, LOW);
+  display.setFont(BigNumbers);
   display.printNumI(conf, CENTER, 0, 2, '0');
-  display.print(" Saved!", CENTER, 8);
-  delay(2000);
+  display.setFont(SmallFont);
+  display.print(" Saved!", CENTER, 32);
+  delay(1500);
   menu(from);
 }
 
-void screenSaver() {
-  readEncoder();
+void screenSaver(bool withLight = true) {
   display.clrScr();
-  digitalWrite(displayLight, HIGH);
-  display.print(rtc.getDateStr(FORMAT_LONG, FORMAT_BIGENDIAN, '/'), CENTER, 11);
-  display.print(rtc.getTimeStr(), CENTER, 29);
+  if(withLight) {
+    digitalWrite(displayLight, LOW);
+  }
+  else {
+    digitalWrite(displayLight, HIGH);
+  }
+  while (selector == items) {
+    readEncoder();
+    display.print(rtc.getDateStr(FORMAT_LONG, FORMAT_BIGENDIAN, '/'), CENTER, 11);
+    display.print(rtc.getTimeStr(), CENTER, 29);
+    timer();
+  }
+}
+
+void timer() {
+  if(displayLEDisOn) {
+    check = millis();
+    if(check - lastInput > displayTimeout) {
+      displayLEDisOn = false;
+      selector = items;
+      menu(items);
+    }
+  }
 }
 
 void readLog() {
   display.clrScr();
   digitalWrite(displayLight, LOW);
-  display.print("Stored data", CENTER, 0);
-  display.print("-----------------", CENTER, 8);
-  display.print("Light: ", LEFT, 16);
-  display.printNumI(light, RIGHT, 16);
-  display.print("Temp.: ", LEFT, 24);
-  display.printNumI(temp, RIGHT, 24);
-  while (selector == 2)
+  display.print("Current", CENTER, 0);
+  display.print("---------------", CENTER, 8);
+  for(int i = 0; i < items; i++) {
+    display.print(menuItem[i], LEFT, 16+8*i);
+    display.printNumI(EEPROM.read(i), RIGHT, 16+8*i);
+  }
+  while (selector == items+1)
   {
     readEncoder();
+    timer();
   }
 }
 
-void setLight() {
+void setValue(int menuSelector) {
+  itemValue = EEPROM.read(menuSelector);
   display.clrScr();
   digitalWrite(displayLight, LOW);
-  display.print("Click to", CENTER, 0);
-  display.print("set timer.", CENTER, 8);
-  while (selector == 3) {
+  display.print("Click to set", CENTER, 0);
+  display.print(menuItem[menuSelector], CENTER, 20);
+  while (selector == menuSelector) {
     ClickEncoder::Button b = encoder->getButton();
     readEncoder();
+    timer();
     if (b == ClickEncoder::Clicked) {
       display.clrScr();
-      display.print("Set Timer", CENTER, 0);
-      display.print("---------", CENTER, 8);
-      display.print("Lights on for: ", CENTER, 16);
-      display.print("hours", CENTER, 32);
+      display.print("Set", CENTER, 0);
+      display.print(menuItem[menuSelector], CENTER, 8);
+      display.print("---------", CENTER, 16);
       while (true) {
         ClickEncoder::Button b = encoder->getButton();
-        light += encoder->getValue();
-        if (light > 24 || light < 0) {
-          light = 0;
-        }
-        display.printNumI(light, CENTER, 24, 2, '0');
+        itemValue += encoder->getValue();
+        display.setFont(BigNumbers);
+        display.printNumI(itemValue, CENTER, 24, 2, '0');
+        display.setFont(SmallFont);
         if (b == ClickEncoder::DoubleClicked) {
-          menu(selector);
+          menu(menuSelector);
           break;
         }
         if (b == ClickEncoder::Held) {
-          EEPROM.write(lightAddress, light);
-          confirm(light, selector);
-          break;
-        }
-      }
-    }
-  }
-}
-
-void setTemp() {
-  display.clrScr();
-  digitalWrite(displayLight, LOW);
-  display.print("Click to", CENTER, 0);
-  display.print("set temp.", CENTER, 8);
-  while (selector == 4) {
-    ClickEncoder::Button b = encoder->getButton();
-    readEncoder();
-    if (b == ClickEncoder::Clicked) {
-      display.clrScr();
-      display.print("Set Temp.", CENTER, 0);
-      display.print("---------", CENTER, 8);
-      display.print("Max. temp.: ", CENTER, 16);
-      display.print("celsius", CENTER, 32);
-      while (true) {
-        ClickEncoder::Button b = encoder->getButton();
-        temp += encoder->getValue();
-        if (temp > 30 || temp < 20) {
-          temp = 20;
-        }
-        display.printNumI(temp, CENTER, 24, 2, '0');
-        if (b == ClickEncoder::DoubleClicked) {
-          menu(selector);
-          break;
-        }
-        if (b == ClickEncoder::Held) {
-          EEPROM.write(tempAddress, temp);
-          confirm(temp, selector);
+          EEPROM.write(menuSelector, itemValue);
+          confirm(itemValue, menuSelector);
           break;
         }
       }
@@ -209,17 +193,23 @@ void setTemp() {
 
 void menu(int switcher) {
   switch (switcher) {
+    case 0:
+        setValue(switcher);
+      break;
     case 1:
-      screenSaver();
+        setValue(switcher);
       break;
     case 2:
-      readLog();
+        setValue(switcher);
       break;
     case 3:
-      setLight();
+        setValue(switcher);
       break;
-    case 4:
-      setTemp();
+    case items:
+      screenSaver(displayLEDisOn);
+      break;
+    case items+1:
+      readLog();
       break;
     default: 
       screenSaver();
