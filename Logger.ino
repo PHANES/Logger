@@ -1,7 +1,7 @@
 /*######################################## Sketch Version ########################################*/
 const char appName[] = "Logger";
-const char appVersion[] = "0.5";
-const char versionDate[] = "25.Feb\'15";
+const char appVersion[] = "0.6";
+const char versionDate[] = "26.Feb\'15";
 const byte showSplashFor = 30;
 
 /*######################################## My Menu Variables ########################################*/
