@@ -1,7 +1,7 @@
 /*######################################## Sketch Version ########################################*/
 const char appName[] = "Logger";
-const char appVersion[] = "0.4";
-const char versionDate[] = "23.Feb\'15";
+const char appVersion[] = "0.5";
+const char versionDate[] = "25.Feb\'15";
 const byte showSplashFor = 30;
 
 /*######################################## My Menu Variables ########################################*/
@@ -211,7 +211,7 @@ void readLog() {
   }
 }
 
-void setValue(int menuSelector) {
+void setValue(int menuSelector, int minimum, int maximum) {
   itemValue = EEPROM.read(menuSelector);
   display.clrScr();
   digitalWrite(displayLight, LOW);
@@ -229,6 +229,14 @@ void setValue(int menuSelector) {
       while (true) {
         ClickEncoder::Button b = encoder->getButton();
         itemValue += encoder->getValue();
+        if (itemValue > maximum || itemValue < minimum) {
+          if (itemValue < minimum) {
+            itemValue = minimum;
+          }
+          else {
+            itemValue = maximum;
+          }
+        }
         display.setFont(BigNumbers);
         display.printNumI(itemValue, CENTER, 24, 2, '0');
         display.setFont(SmallFont);
@@ -333,16 +341,16 @@ void readAir() {
 void menu(int switcher) {
   switch (switcher) {
     case 0:
-        setValue(switcher);
+        setValue(switcher, 0, 24);
       break;
     case 1:
-        setValue(switcher);
+        setValue(switcher, 15, 35);
       break;
     case 2:
-        setValue(switcher);
+        setValue(switcher, 0, 99);
       break;
     case 3:
-        setValue(switcher);
+        setValue(switcher, 10, 30);
       break;
     case items:
       screenSaver(displayLEDisOn);
