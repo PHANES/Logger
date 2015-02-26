@@ -4,7 +4,7 @@ const char appVersion[] = "0.4";
 const char versionDate[] = "23.Feb\'15";
 const byte showSplashFor = 30;
 
-/*######################################## Global Variables ########################################*/
+/*######################################## My Menu Variables ########################################*/
 String menuItem[] = {"Light", "Temperature", "Humidity", "Water"};
 const byte items = sizeof(menuItem)/sizeof(menuItem[0]);
 int selector = items;
@@ -16,11 +16,53 @@ unsigned int displayTimeout = 15000;
 /*######################################## EEPROM ########################################*/
 #include <EEPROM.h>
 
+/*######################################## DS18B20 ########################################*/
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+// Data wire is plugged into pin 9 on the Arduino
+const int ONE_WIRE_BUS = 9;
+
+// Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
+OneWire oneWire(ONE_WIRE_BUS);
+
+// Pass our oneWire reference to Dallas Temperature. 
+DallasTemperature sensors(&oneWire);
+
+float waterTemp = 0;
+
+/*######################################## DHT22 ########################################*/
+#include <DHT.h>
+
+DHT dht;
+
+const int dhtPin = 10;
+
+float airTemp = 0;
+float humidity = 0;
+
+/*######################################## Shift Register ########################################*/
+//Pin connected to ST_CP of 74HC595
+const int latchPin = 13;
+//Pin connected to SH_CP of 74HC595
+const int clockPin = 12;
+////Pin connected to DS of 74HC595
+const int dataPin = 11;
+
+// holders for infromation you're going to pass to shifting function
+byte data;
+byte dataArray[8] = {1, 2, 4, 8, 16, 32, 64, 128};
+
+// remember if a relay is on->[1] or off->[0]
+byte relayIsOn[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+
 /*######################################## Rotary Encoder ########################################*/
 #include <ClickEncoder.h>
 #include <TimerOne.h>
+
 ClickEncoder *encoder;
-int last = 1;
+int last = items-1;
+
 void timerIsr() {
   encoder->service();
 }
@@ -50,18 +92,27 @@ DS3231  rtc(SDA, SCL);
 
 /*######################################## Setup ########################################*/
 void setup() {
-  // Initialize the rtc object
+  // Initialize the RealTimeClock object
   rtc.begin();
   
-  pinMode(displayLight, OUTPUT);
+  // Initialize the DallasTemperature object
+  sensors.begin();
   
+  // Initialize DHT22 object
+  dht.setup(dhtPin);
+  
+  //shift register pins to output
+  pinMode(latchPin, OUTPUT);
+  
+  // Initialize Rotary Encoder object
   encoder = new ClickEncoder(A1, A0, A2, 4, LOW); //Rotary PIN-A, PIN-B, PIN-3, Anzahl der Steps, Knopf an 5V oder Ground
   Timer1.initialize(1000);
   Timer1.attachInterrupt(timerIsr);
-  last = items-1;
   encoder->setAccelerationEnabled(true);
 
+  // Initialize LCD Display object
   display.InitLCD();
+  pinMode(displayLight, OUTPUT);
   
   splashScreen();
 }
@@ -69,6 +120,10 @@ void setup() {
 /*######################################## Main Loop ########################################*/
 void loop() {
   menu(selector);
+  /*
+  readAir();
+  readWater();
+  */
   delay(10);
 }
 
@@ -191,6 +246,88 @@ void setValue(int menuSelector) {
       }
     }
   }
+}
+
+void shiftOut(int myDataPin, int myClockPin, byte myDataOut) {
+  // This shifts 8 bits out MSB first, 
+  //on the rising edge of the clock,
+  //clock idles low
+
+  //internal function setup
+  int i=0;
+  int pinState;
+  pinMode(myClockPin, OUTPUT);
+  pinMode(myDataPin, OUTPUT);
+
+  //clear everything out just in case to
+  //prepare shift register for bit shifting
+  digitalWrite(myDataPin, 0);
+  digitalWrite(myClockPin, 0);
+
+  //for each bit in the byte myDataOut�
+  //NOTICE THAT WE ARE COUNTING DOWN in our for loop
+  //This means that %00000001 or "1" will go through such
+  //that it will be pin Q0 that lights. 
+  for (i=7; i>=0; i--)  {
+    digitalWrite(myClockPin, 0);
+
+    //if the value passed to myDataOut and a bitmask result 
+    // true then... so if we are at i=6 and our value is
+    // %11010100 it would the code compares it to %01000000 
+    // and proceeds to set pinState to 1.
+    if ( myDataOut & (1<<i) ) {
+      pinState= 1;
+    }
+    else {  
+      pinState= 0;
+    }
+
+    //Sets the pin to HIGH or LOW depending on pinState
+    digitalWrite(myDataPin, pinState);
+    //register shifts bits on upstroke of clock pin  
+    digitalWrite(myClockPin, 1);
+    //zero the data pin after shift to prevent bleed through
+    digitalWrite(myDataPin, 0);
+  }
+
+  //stop shifting
+  digitalWrite(myClockPin, 0);
+}
+
+void switchRelay(int relay) {
+  // set relay to 0 index
+  relay --;
+  // set the byte for this relay to on or off
+  relayIsOn[relay] = (1 == relayIsOn[relay]) ? 0 : 1;
+  // switch the state of the relay
+  /*
+    int x = 12;     // binary: 1100
+    int y = 10;     // binary: 1010
+    int z = x ^ y;  // binary: 0110, or decimal 6
+  */
+  data = data ^ dataArray[relay];
+  //ground latchPin and hold low for as long as you are transmitting
+  digitalWrite(latchPin, 0);
+  //move 'em out
+  shiftOut(dataPin, clockPin, data);
+  //return the latch pin high to signal chip that it 
+  //no longer needs to listen for information
+  digitalWrite(latchPin, 1);
+  delay(300);
+}
+
+void readWater() {
+  // call sensors.requestTemperatures() to issue a global temperature 
+  // request to all devices on the bus
+  sensors.requestTemperatures(); // Send the command to get temperatures
+  
+  waterTemp = sensors.getTempCByIndex(0);
+}
+
+void readAir() {
+  delay(dht.getMinimumSamplingPeriod());
+  airTemp = dht.getTemperature();
+  humidity = dht.getHumidity();
 }
 
 void menu(int switcher) {
