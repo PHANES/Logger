@@ -1,7 +1,7 @@
 /*######################################## Sketch Version ########################################*/
 const char appName[] = "Logger";
-const char appVersion[] = "0.6";
-const char versionDate[] = "26.Feb\'15";
+const char appVersion[] = "0.7";
+const char versionDate[] = "03.Mar\'15";
 const byte showSplashFor = 30;
 
 /*######################################## My Menu Variables ########################################*/
@@ -21,7 +21,7 @@ unsigned int displayTimeout = 15000;
 #include <DallasTemperature.h>
 
 // Data wire is plugged into pin 9 on the Arduino
-const int ONE_WIRE_BUS = 9;
+const int ONE_WIRE_BUS = 10;
 
 // Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
 OneWire oneWire(ONE_WIRE_BUS);
@@ -36,10 +36,10 @@ float waterTemp = 0;
 
 DHT dht;
 
-const int dhtPin = 10;
+const int dhtPin = 9;
 
-float airTemp = 0;
-float humidity = 0;
+float airTemp = 0.0;
+float humidity = 0.0;
 
 /*######################################## Shift Register ########################################*/
 //Pin connected to ST_CP of 74HC595
@@ -92,6 +92,7 @@ DS3231  rtc(SDA, SCL);
 
 /*######################################## Setup ########################################*/
 void setup() {
+  Serial.begin(9600);
   // Initialize the RealTimeClock object
   rtc.begin();
   
@@ -170,6 +171,15 @@ void confirm(int conf, int from) {
 
 void screenSaver(bool withLight = true) {
   display.clrScr();
+  display.print("Temp :", LEFT, 24);
+  display.printNumF(airTemp, 2, 46, 24);
+  display.print("C", RIGHT, 24);
+  display.print("Humid:", LEFT, 32);
+  display.printNumF(humidity, 2, 46, 32);
+  display.print("%", RIGHT, 32);
+  display.print("Value:", LEFT, 40);
+  display.printNumF(18.12, 2, 46, 40);
+  display.print("X", RIGHT, 40);
   if(withLight) {
     digitalWrite(displayLight, LOW);
   }
@@ -178,8 +188,8 @@ void screenSaver(bool withLight = true) {
   }
   while (selector == items) {
     readEncoder();
-    display.print(rtc.getDateStr(FORMAT_LONG, FORMAT_BIGENDIAN, '/'), CENTER, 11);
-    display.print(rtc.getTimeStr(), CENTER, 29);
+    display.print(rtc.getDateStr(FORMAT_LONG, FORMAT_BIGENDIAN, '/'), CENTER, 0);
+    display.print(rtc.getTimeStr(), CENTER, 8);
     timer();
   }
 }
@@ -198,7 +208,7 @@ void timer() {
 void readLog() {
   display.clrScr();
   digitalWrite(displayLight, LOW);
-  display.print("Current", CENTER, 0);
+  display.print("Setpoints", CENTER, 0);
   display.print("---------------", CENTER, 8);
   for(int i = 0; i < items; i++) {
     display.print(menuItem[i], LEFT, 16+8*i);
@@ -336,6 +346,9 @@ void readAir() {
   delay(dht.getMinimumSamplingPeriod());
   airTemp = dht.getTemperature();
   humidity = dht.getHumidity();
+  Serial.print(airTemp);
+  Serial.print("-|-");
+  Serial.print(humidity);
 }
 
 void menu(int switcher) {
