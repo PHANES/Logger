@@ -1,8 +1,8 @@
 /*######################################## Sketch Version ########################################*/
 const char appName[] = "Logger";
-const char appVersion[] = "0.7";
-const char versionDate[] = "03.Mar\'15";
-const byte showSplashFor = 30;
+const char appVersion[] = "0.711";
+const char versionDate[] = "14.Mar\'15";
+const byte showSplashFor = 3;
 
 /*######################################## My Menu Variables ########################################*/
 String menuItem[] = {"Light", "Temperature", "Humidity", "Water"};
@@ -29,17 +29,17 @@ OneWire oneWire(ONE_WIRE_BUS);
 // Pass our oneWire reference to Dallas Temperature. 
 DallasTemperature sensors(&oneWire);
 
-float waterTemp = 0;
+float waterTemp = 0.0;
 
 /*######################################## DHT22 ########################################*/
-#include <DHT.h>
+#include "DHT.h"
+
+const int dhtPin = 2;
 
 DHT dht;
 
-const int dhtPin = 9;
-
-float airTemp = 0.0;
 float humidity = 0.0;
+float temperature = 0.0;
 
 /*######################################## Shift Register ########################################*/
 //Pin connected to ST_CP of 74HC595
@@ -71,11 +71,11 @@ void timerIsr() {
 // It is assumed that the LCD module is connected to
 // the following pins using a levelshifter to get the
 // correct voltage to the module.
-//      SCK  - Pin 7
-//      MOSI - Pin 6
+//      CLK  - Pin 7
+//      Din  - Pin 6
 //      DC   - Pin 5
+//      CE   - Pin 4
 //      RST  - Pin 3
-//      CS   - Pin 4
 //
 #include <LCD5110_Basic.h>
 LCD5110 display(7,6,5,3,4);
@@ -98,8 +98,8 @@ void setup() {
   
   // Initialize the DallasTemperature object
   sensors.begin();
-  
-  // Initialize DHT22 object
+
+  // Inicialize the DHT22 object
   dht.setup(dhtPin);
   
   //shift register pins to output
@@ -120,11 +120,9 @@ void setup() {
 
 /*######################################## Main Loop ########################################*/
 void loop() {
-  menu(selector);
-  /*
+  
   readAir();
-  readWater();
-  */
+  menu(selector);
   delay(10);
 }
 
@@ -172,14 +170,13 @@ void confirm(int conf, int from) {
 void screenSaver(bool withLight = true) {
   display.clrScr();
   display.print("Temp :", LEFT, 24);
-  display.printNumF(airTemp, 2, 46, 24);
+  display.printNumF(temperature, 2, 46, 24);
   display.print("C", RIGHT, 24);
   display.print("Humid:", LEFT, 32);
   display.printNumF(humidity, 2, 46, 32);
   display.print("%", RIGHT, 32);
-  display.print("Value:", LEFT, 40);
-  display.printNumF(18.12, 2, 46, 40);
-  display.print("X", RIGHT, 40);
+  display.print("Water:", LEFT, 40);
+  display.print("C", RIGHT, 40);
   if(withLight) {
     digitalWrite(displayLight, LOW);
   }
@@ -187,7 +184,9 @@ void screenSaver(bool withLight = true) {
     digitalWrite(displayLight, HIGH);
   }
   while (selector == items) {
+    readWater();
     readEncoder();
+    display.printNumF(waterTemp, 2, 46, 40);
     display.print(rtc.getDateStr(FORMAT_LONG, FORMAT_BIGENDIAN, '/'), CENTER, 0);
     display.print(rtc.getTimeStr(), CENTER, 8);
     timer();
@@ -340,15 +339,18 @@ void readWater() {
   sensors.requestTemperatures(); // Send the command to get temperatures
   
   waterTemp = sensors.getTempCByIndex(0);
+  Serial.print("Water temp.: \n");
+  Serial.println(waterTemp);
 }
 
 void readAir() {
-  delay(dht.getMinimumSamplingPeriod());
-  airTemp = dht.getTemperature();
-  humidity = dht.getHumidity();
-  Serial.print(airTemp);
-  Serial.print("-|-");
-  Serial.print(humidity);
+  float humidity = dht.getHumidity();
+  float temperature = dht.getTemperature();
+
+  Serial.print("Humid.: \n");
+  Serial.println(humidity);
+  Serial.print("Air temp.: \n");
+  Serial.println(temperature);
 }
 
 void menu(int switcher) {
