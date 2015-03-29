@@ -34,7 +34,7 @@ float waterTemp = 0.0;
 /*######################################## DHT22 ########################################*/
 #include "DHT.h"
 
-const int dhtPin = 2;
+const int dhtPin = 9;
 
 DHT dht;
 
@@ -115,13 +115,13 @@ void setup() {
   display.InitLCD();
   pinMode(displayLight, OUTPUT);
   
+  readAir();
+  
   splashScreen();
 }
 
 /*######################################## Main Loop ########################################*/
 void loop() {
-  
-  readAir();
   menu(selector);
   delay(10);
 }
@@ -170,10 +170,8 @@ void confirm(int conf, int from) {
 void screenSaver(bool withLight = true) {
   display.clrScr();
   display.print("Temp :", LEFT, 24);
-  display.printNumF(temperature, 2, 46, 24);
   display.print("C", RIGHT, 24);
   display.print("Humid:", LEFT, 32);
-  display.printNumF(humidity, 2, 46, 32);
   display.print("%", RIGHT, 32);
   display.print("Water:", LEFT, 40);
   display.print("C", RIGHT, 40);
@@ -187,9 +185,10 @@ void screenSaver(bool withLight = true) {
     readWater();
     readEncoder();
     display.printNumF(waterTemp, 2, 46, 40);
+    display.printNumF(temperature, 2, 46, 24);
+    display.printNumF(humidity, 2, 46, 32);
     display.print(rtc.getDateStr(FORMAT_LONG, FORMAT_BIGENDIAN, '/'), CENTER, 0);
     display.print(rtc.getTimeStr(), CENTER, 8);
-    timer();
   }
 }
 
@@ -344,8 +343,9 @@ void readWater() {
 }
 
 void readAir() {
-  float humidity = dht.getHumidity();
-  float temperature = dht.getTemperature();
+  
+  humidity = dht.getHumidity();
+  temperature = dht.getTemperature();
 
   Serial.print("Humid.: \n");
   Serial.println(humidity);
